@@ -1,43 +1,39 @@
 "use client";
-
 import React, { useEffect, useState } from 'react';
-import { Line, Doughnut } from 'react-chartjs-2';
+import { Bar, Line } from 'react-chartjs-2';
 import styles from './Dashboard.module.css';
-import { Chart as ChartJS, CategoryScale, LinearScale, LineElement, PointElement, Title, Tooltip, Legend, ArcElement } from 'chart.js';
-import 'bootstrap/dist/css/bootstrap.min.css';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend } from 'chart.js';
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  LineElement,
-  PointElement,
-  Title,
-  Tooltip,
-  Legend,
-  ArcElement
-);
+// Force dynamic rendering in Next.js
+export const dynamic = 'force-dynamic';
+
+// Register necessary components for Chart.js
+ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend);
 
 export default function Dashboard() {
   const [lastData, setLastData] = useState([]);
   const [allData, setAllData] = useState([]);
   const [attackCount, setAttackCount] = useState(null);
-  const [selectedChart, setSelectedChart] = useState('doughnut');
 
+  // Fetch latest data for the bar charts
   async function fetchLastData() {
     try {
       const res = await fetch("/api/lastestData");
       const data = await res.json();
       setLastData(data);
+      console.log("Latest Data:", data);
     } catch (error) {
       console.error("Error fetching latest data:", error);
     }
   }
 
+  // Fetch all data for the line charts
   async function fetchAllData() {
     try {
       const res = await fetch("/api/alldata");
       const data = await res.json();
       setAllData(data);
+      console.log("All Data:", data);
     } catch (error) {
       console.error("Error fetching all data:", error);
     }
@@ -45,49 +41,41 @@ export default function Dashboard() {
 
   async function fetchAttackCount() {
     try {
-      const res = await fetch("/api/attackCount");
+      const res = await fetch("/api/attackCount");  // Replace with actual API endpoint
       const data = await res.json();
-      setAttackCount(data.att);
+      setAttackCount(data.att);  // Assuming the API returns an object with 'att' key
+      console.log("Attack Count:", data.att);
     } catch (error) {
       console.error("Error fetching attack count:", error);
     }
   }
 
-  const doughnutChartData = lastData.length > 0 ? {
-    labels: ['Temperature', 'Distance'],
-    datasets: [{
-      label: 'Sensor Data',
-      data: [
-        lastData.reduce((sum, dataPoint) => sum + dataPoint.temp, 0),
-        lastData.reduce((sum, dataPoint) => sum + dataPoint.distance, 0)
+  // Process data for bar charts
+  const chartData1 = lastData.length > 0 ? {
+    labels: ['LDR', 'VR'],
+    datasets: lastData.map((dataPoint, index) => ({
+      label: `Data Point ${index + 1}`,
+      data: [dataPoint.ldr, dataPoint.vr],
+      backgroundColor: [
+        'rgba(75, 192, 192, 0.6)',
+        'rgba(153, 102, 255, 0.6)',
       ],
+    })),
+  } : null;
+
+  const chartData2 = lastData.length > 0 ? {
+    labels: ['Temperature', 'Distance'],
+    datasets: lastData.map((dataPoint, index) => ({
+      label: `Data Point ${index + 1}`,
+      data: [dataPoint.temp, dataPoint.distance],
       backgroundColor: [
         'rgba(255, 159, 64, 0.6)',
         'rgba(255, 99, 132, 0.6)',
       ],
-    }],
+    })),
   } : null;
 
-  const doughnutChartOptions = {
-    responsive: true,
-    plugins: {
-      legend: {
-        position: 'top',
-      },
-      tooltip: {
-        callbacks: {
-          title: function(tooltipItem) {
-            return tooltipItem[0].label;
-          },
-          label: function(tooltipItem) {
-            return `${tooltipItem.dataset.label}: ${tooltipItem.raw}`;
-          },
-        },
-      },
-      cutout: '70%',
-    },
-  };
-
+  // Process data for line charts
   const lineChartData1 = allData.length > 0 ? {
     labels: allData.map((dataPoint) => 
       new Date(dataPoint.date).toLocaleString('th-TH', {
@@ -140,21 +128,24 @@ export default function Dashboard() {
     ],
   } : null;
 
-  const lineChartOptions = {
+  const chartOptions = {
     responsive: true,
     plugins: {
       legend: {
         position: 'top',
       },
-      tooltip: {
-        callbacks: {
-          title: function(tooltipItem) {
-            return tooltipItem[0].label;
-          },
-          label: function(tooltipItem) {
-            return `${tooltipItem.dataset.label}: ${tooltipItem.raw}`;
-          },
-        },
+      title: {
+        display: true,
+        text: 'Latest Sensor Data Visualization',
+      },
+    },
+  };
+
+  const lineChartOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: 'top',
       },
       title: {
         display: true,
@@ -168,12 +159,14 @@ export default function Dashboard() {
     fetchAllData();
     fetchAttackCount();
 
+    // Set up interval to fetch latest data every 10 seconds
     const intervalId = setInterval(() => {
       fetchLastData();
       fetchAllData();
       fetchAttackCount();
-    }, 10000);
+    }, 10000); // 10 seconds
 
+    // Clear interval on component unmount
     return () => clearInterval(intervalId);
   }, []);
 
@@ -181,86 +174,88 @@ export default function Dashboard() {
     <div className={styles.dashboard}>
       <h1 className={styles.heading}>Dashboard</h1>
 
-      <div className={styles.chartControls}>
-        <button
-          className={`btn btn-primary ${selectedChart === 'doughnut' ? 'active' : ''}`}
-          onClick={() => setSelectedChart('doughnut')}
-        >
-          Doughnut Chart
-        </button>
-        <button
-          className={`btn btn-secondary ${selectedChart === 'line1' ? 'active' : ''}`}
-          onClick={() => setSelectedChart('line1')}
-        >
-          Line Chart LDR & VR
-        </button>
-        <button
-          className={`btn btn-success ${selectedChart === 'line2' ? 'active' : ''}`}
-          onClick={() => setSelectedChart('line2')}
-        >
-          Line Chart Temperature & Distance
-        </button>
-      </div>
-
       <div className={styles.chartRow}>
-        {selectedChart === 'doughnut' && lastData.length > 0 && doughnutChartData ? (
+        {lastData.length > 0 && chartData1 ? (
           <div className={styles.chartContainer}>
-            <h2>Doughnut Chart: Temperature and Distance</h2>
-            <Doughnut data={doughnutChartData} options={doughnutChartOptions} />
-          </div>
-        ) : selectedChart === 'line1' && allData.length > 0 && lineChartData1 ? (
-          <div className={styles.chartContainer}>
-            <h2>Line Chart: LDR & VR Trends</h2>
-            <Line data={lineChartData1} options={lineChartOptions} />
-          </div>
-        ) : selectedChart === 'line2' && allData.length > 0 && lineChartData2 ? (
-          <div className={styles.chartContainer}>
-            <h2>Line Chart: Temperature & Distance Trends</h2>
-            <Line data={lineChartData2} options={lineChartOptions} />
+            <h2>LDR and VR</h2>
+            <Bar data={chartData1} options={chartOptions} />
           </div>
         ) : (
-          <p>No data available for the selected chart</p>
+          <p>No data available for LDR and VR chart</p>
+        )}
+
+        {lastData.length > 0 && chartData2 ? (
+          <div className={styles.chartContainer}>
+            <h2>Temperature and Distance</h2>
+            <Bar data={chartData2} options={chartOptions} />
+          </div>
+        ) : (
+          <p>No data available for Temperature and Distance chart</p>
         )}
       </div>
 
-      <div className={styles.tableContainer}>
-        <h2>Latest Data</h2>
-        <table className={`table table-striped table-bordered ${styles.table}`}>
-          <thead className="thead-dark">
-            <tr>
-              <th>ID</th>
-              <th>LDR</th>
-              <th>VR</th>
-              <th>Temperature</th>
-              <th>Distance</th>
-              <th>Created At</th>
-            </tr>
-          </thead>
-          <tbody>
-            {lastData.map((ldata) => (
-              <tr key={ldata.id}>
-                <td>{ldata.id}</td>
-                <td>{ldata.ldr}</td>
-                <td>{ldata.vr}</td>
-                <td>{ldata.temp}</td>
-                <td>{ldata.distance}</td>
-                <td>
-                  {new Date(ldata.date).toLocaleString('th-TH', {
-                    timeZone: 'Asia/Bangkok',
-                    dateStyle: 'short',
-                    timeStyle: 'short',
-                  })}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className={styles.chartRow}>
+        {allData.length > 0 && lineChartData1 ? (
+          <div className={styles.chartContainer}>
+            <h2>LDR and VR Trends</h2>
+            <Line data={lineChartData1} options={lineChartOptions} />
+          </div>
+        ) : (
+          <p>No data available for the LDR and VR line chart</p>
+        )}
+
+        {allData.length > 0 && lineChartData2 ? (
+          <div className={styles.chartContainer}>
+            <h2>Temperature and Distance Trends</h2>
+            <Line data={lineChartData2} options={lineChartOptions} />
+          </div>
+        ) : (
+          <p>No data available for the Temperature and Distance line chart</p>
+        )}
       </div>
 
+      {/* Display the attack count */}
       <div className={styles.attackCountContainer}>
-        <h2>Recent Attack Count</h2>
-        <p className={styles.attackCount}>{attackCount !== null ? attackCount : 'Loading...'}</p>
+        <h2>Number of Attacks</h2>
+        {attackCount !== null ? (
+          <p className={styles.attackCount}>{attackCount}</p>
+        ) : (
+          <p>Loading attack data...</p>
+        )}
       </div>
+
+        
+      <h1 className={styles.heading}>Lastest Data</h1>
+      <table className={`table table-striped table-bordered ${styles.table}`}>
+        <thead className="thead-dark">
+          <tr>
+            <th>ID</th>
+            <th>LDR</th>
+            <th>VR</th>
+            <th>Temperature</th>
+            <th>Distance</th>
+            <th>Create At</th>
+          </tr>
+        </thead>
+        <tbody>
+          {lastData.map((ldata) => (
+            <tr key={ldata.id}>
+              <td>{ldata.id}</td>
+              <td>{ldata.ldr}</td>
+              <td>{ldata.vr}</td>
+              <td>{ldata.temp}</td>
+              <td>{ldata.distance}</td>
+              <td>
+                {new Date(ldata.date).toLocaleString('th-TH', {
+                  timeZone: 'Asia/Bangkok',
+                  dateStyle: 'short',
+                  timeStyle: 'short',
+                })}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

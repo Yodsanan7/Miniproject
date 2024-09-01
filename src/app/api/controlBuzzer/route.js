@@ -27,7 +27,7 @@ export default async function handler(req, res) {
 
       // Insert the command into the database for the buzzer
       await client.query(`
-        INSERT INTO "yod060" ("command", "date")
+        INSERT INTO "NRD012" ("command", "date")
         VALUES ($1, NOW())
       `, ['BUZZER_ON']);
 
